@@ -15,7 +15,14 @@ export async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client offline status check:', error.message);
+      if (auth.currentUser) {
+        try {
+          await signOut(auth);
+          await getDocFromServer(doc(db, 'test', 'connection'));
+          return;
+        } catch (_) {}
+      }
+      console.error('Please check your Firebase configuration.');
     }
   }
 }
@@ -23,6 +30,19 @@ export async function testConnection() {
 export async function loginWithGoogle(): Promise<{ user: any; error?: string; code?: string }> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    if (result.user) {
+      try {
+        await result.user.getIdToken();
+      } catch (tokenErr: any) {
+        if (tokenErr?.message?.includes('token-service-api') || tokenErr?.message?.includes('securetoken')) {
+          await signOut(auth);
+          return {
+            user: null,
+            error: 'Google Token Service API is disabled on project 969664109416. Enable it at https://console.developers.google.com/apis/api/securetoken.googleapis.com/overview?project=969664109416 then retry.',
+          };
+        }
+      }
+    }
     return { user: result.user };
   } catch (error: any) {
     const code = error?.code || 'auth/unknown';

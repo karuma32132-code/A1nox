@@ -47,6 +47,7 @@ const StoreContent: React.FC = () => {
     isLoading,
     setIsAdminOpen,
     t,
+    toast,
   } = useStore();
 
   // Direct Admin URL Route Protection Check
@@ -485,7 +486,9 @@ const StoreContent: React.FC = () => {
                 <form
                   onSubmit={e => {
                     e.preventDefault();
-                    alert('Thank you for contacting A1NOXHUB. We will reply within 24 hours.');
+                    toast.success('Thank you for contacting A1NOXHUB. We will reply within 24 hours.', {
+                      title: 'Message Sent',
+                    });
                   }}
                   className="space-y-3 text-xs"
                 >

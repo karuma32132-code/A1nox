@@ -37,7 +37,7 @@ import {
   deleteReviewFromDB,
 } from '../firebase/firestore';
 import { auth, loginWithGoogle, logoutUser, testConnection } from '../firebase/config';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import {
   initMetaPixel,
   trackPageView,
@@ -230,11 +230,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Initialize Firebase connection test on boot
   useEffect(() => {
-    testConnection();
-    const unsubscribe = onAuthStateChanged(auth, user => {
-      setCurrentUser(user);
+    let isMounted = true;
+    const unsubscribe = onAuthStateChanged(auth, async user => {
+      if (user) {
+        try {
+          // Verify token validity to ensure Token Service API is reachable
+          await user.getIdToken(true);
+          if (isMounted) setCurrentUser(user);
+        } catch (tokenErr: any) {
+          console.warn('Firebase user token verification failed, resetting session:', tokenErr?.message || tokenErr);
+          try {
+            await signOut(auth);
+          } catch (_) {}
+          if (isMounted) setCurrentUser(null);
+        }
+      } else {
+        if (isMounted) setCurrentUser(null);
+      }
+      testConnection();
     });
-    return () => unsubscribe();
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Fetch public data (products and settings) from Firestore on mount

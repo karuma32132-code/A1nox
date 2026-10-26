@@ -60,13 +60,30 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
+export function isOfflineError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('client is offline') ||
+    lower.includes('the client is offline') ||
+    lower.includes('unavailable') ||
+    lower.includes('token-service-api') ||
+    lower.includes('securetoken')
+  );
+}
+
 // Products
 export async function getProductsFromDB(): Promise<Product[]> {
   const path = 'products';
   try {
     const snap = await getDocs(collection(db, path));
     return snap.docs.map(d => ({ ...(d.data() as Product), id: d.id }));
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      console.warn('Products fallback to cache due to offline status:', err?.message || err);
+      return [];
+    }
     handleFirestoreError(err, OperationType.LIST, path);
   }
 }
@@ -95,7 +112,10 @@ export async function getCategoriesFromDB(): Promise<Category[]> {
   try {
     const snap = await getDocs(collection(db, path));
     return snap.docs.map(d => ({ ...(d.data() as Category), id: d.id }));
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      return [];
+    }
     handleFirestoreError(err, OperationType.LIST, path);
   }
 }
@@ -126,7 +146,10 @@ export async function getOrdersFromDB(): Promise<Order[]> {
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ ...(d.data() as Order), id: d.id }));
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      return [];
+    }
     handleFirestoreError(err, OperationType.LIST, path);
   }
 }
@@ -155,7 +178,10 @@ export async function getOrderByIdFromDB(orderId: string): Promise<Order | null>
       return { ...(snap.data() as Order), id: snap.id };
     }
     return null;
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      return null;
+    }
     handleFirestoreError(err, OperationType.GET, path);
   }
 }
@@ -177,7 +203,9 @@ export function subscribeToOrderInDB(
     },
     err => {
       if (onError) onError(err);
-      handleFirestoreError(err, OperationType.GET, path);
+      if (!isOfflineError(err)) {
+        handleFirestoreError(err, OperationType.GET, path);
+      }
     }
   );
 }
@@ -191,7 +219,11 @@ export async function getSettingsFromDB(): Promise<StoreSettings | null> {
       return snap.data() as StoreSettings;
     }
     return null;
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      console.warn('Settings using default values due to offline connection.');
+      return null;
+    }
     handleFirestoreError(err, OperationType.GET, path);
   }
 }
@@ -211,7 +243,10 @@ export async function getCouponsFromDB(): Promise<Coupon[]> {
   try {
     const snap = await getDocs(collection(db, path));
     return snap.docs.map(d => ({ ...(d.data() as Coupon) }));
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      return [];
+    }
     handleFirestoreError(err, OperationType.LIST, path);
   }
 }
@@ -235,7 +270,11 @@ export async function getWishlistFromDB(userId: string): Promise<string[] | null
       return Array.isArray(data.productIds) ? data.productIds : [];
     }
     return null;
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      console.warn('Wishlist using local storage due to offline connection.');
+      return null;
+    }
     handleFirestoreError(err, OperationType.GET, path);
   }
 }
@@ -286,7 +325,10 @@ export async function getAllReviewsFromDB(): Promise<any[]> {
   try {
     const snap = await getDocs(collection(db, path));
     return snap.docs.map(d => ({ ...d.data(), id: d.id }));
-  } catch (err) {
+  } catch (err: any) {
+    if (isOfflineError(err)) {
+      return [];
+    }
     handleFirestoreError(err, OperationType.LIST, path);
   }
 }
