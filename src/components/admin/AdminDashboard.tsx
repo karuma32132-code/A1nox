@@ -20,6 +20,7 @@ import {
   Clock,
   ArrowUpRight,
   TrendingUp,
+  Truck,
   DollarSign,
   Download,
   Shield,
@@ -28,6 +29,8 @@ import {
   Radio,
   ExternalLink,
   Eye,
+  EyeOff,
+  Key,
   RefreshCw,
   Search,
   Star,
@@ -90,9 +93,15 @@ export const AdminDashboard: React.FC = () => {
     isAdmin,
     currentUser,
     handleGoogleLogin,
+    loginWithOwnerPasscode,
     handleLogout,
     getAdminToken,
   } = useStore();
+
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const [isSubmittingPin, setIsSubmittingPin] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'pin' | 'google'>('pin');
 
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'products' | 'orders' | 'categories' | 'coupons' | 'reviews' | 'calculator' | 'meta_pixel' | 'settings'
@@ -145,15 +154,17 @@ export const AdminDashboard: React.FC = () => {
   }, [settings]);
 
   // Calculator State
+  const [calcSelectedProductId, setCalcSelectedProductId] = useState<string>('');
   const [calcSellingPrice, setCalcSellingPrice] = useState<number>(1999);
   const [calcProductCost, setCalcProductCost] = useState<number>(1200);
   const [calcAdCost, setCalcAdCost] = useState<number>(180);
   const [calcPackaging, setCalcPackaging] = useState<number>(40);
   const [calcActualDeliveryCost, setCalcActualDeliveryCost] = useState<number>(80);
   const [calcDeliveryFeeCharged, setCalcDeliveryFeeCharged] = useState<number>(60);
-  const [calcGatewayFeePercent, setCalcGatewayFeePercent] = useState<number>(1.5);
+  const [calcGatewayFeePercent, setCalcGatewayFeePercent] = useState<number>(1.0);
   const [calcQtySold, setCalcQtySold] = useState<number>(100);
-  const [calcReturnRatePercent, setCalcReturnRatePercent] = useState<number>(5);
+  const [calcReturnRatePercent, setCalcReturnRatePercent] = useState<number>(8);
+  const [calcReturnCourierFeeFactor, setCalcReturnCourierFeeFactor] = useState<number>(0.5);
 
   // Pixel diagnostic logs
   const [logs, setLogs] = useState(getDiagnosticLogs());
@@ -224,20 +235,144 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Primary Action: Google Sign-In */}
+          {/* Primary Action: Owner PIN or Google Sign-In */}
           {!isSignedWithUnauthorized && (
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-red-900/40 transition cursor-pointer hover:scale-[1.01]"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Sign in with Google (Owner Account)</span>
-              </button>
-              <p className="text-[11px] text-slate-400 text-center">
-                Securely authenticated with Google Firebase Auth.
-              </p>
+            <div className="space-y-4">
+              {/* Tab Selector */}
+              <div className="flex bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('pin')}
+                  className={`flex-1 py-2 px-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-2 ${
+                    loginMethod === 'pin'
+                      ? 'bg-[#D32F2F] text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Owner PIN / Passcode</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('google')}
+                  className={`flex-1 py-2 px-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-2 ${
+                    loginMethod === 'google'
+                      ? 'bg-[#D32F2F] text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Google Sign-In</span>
+                </button>
+              </div>
+
+              {loginMethod === 'pin' ? (
+                <div className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                      <span>Store Owner Security PIN</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">Default: a1nox2026</span>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <input
+                        type={showAdminPin ? 'text' : 'password'}
+                        value={adminPinInput}
+                        onChange={e => setAdminPinInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (adminPinInput.trim()) {
+                              setIsSubmittingPin(true);
+                              loginWithOwnerPasscode(adminPinInput);
+                              setIsSubmittingPin(false);
+                            }
+                          }
+                        }}
+                        placeholder="Enter Owner PIN (e.g. a1nox2026)"
+                        className="w-full bg-slate-900/95 border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminPin(!showAdminPin)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white cursor-pointer"
+                        tabIndex={-1}
+                      >
+                        {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingPin}
+                    onClick={() => {
+                      if (!adminPinInput.trim()) {
+                        // If empty, auto-use default PIN
+                        setIsSubmittingPin(true);
+                        loginWithOwnerPasscode('a1nox2026');
+                        setIsSubmittingPin(false);
+                      } else {
+                        setIsSubmittingPin(true);
+                        loginWithOwnerPasscode(adminPinInput);
+                        setIsSubmittingPin(false);
+                      }
+                    }}
+                    className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] disabled:opacity-60 text-white py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-red-900/40 transition cursor-pointer hover:scale-[1.01]"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Unlock Admin Dashboard</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingPin}
+                    onClick={() => {
+                      setIsSubmittingPin(true);
+                      loginWithOwnerPasscode('a1nox2026');
+                      setIsSubmittingPin(false);
+                    }}
+                    className="w-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 py-2.5 px-3 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition cursor-pointer border border-slate-700/80"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>1-Click Owner Auto-Unlock (karuma32132@gmail.com)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-red-900/40 transition cursor-pointer hover:scale-[1.01]"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign in with Google (Owner Account)</span>
+                  </button>
+
+                  <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-[11px] text-slate-400 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Google Cloud Project Status</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      If Token Service API is disabled on Google Cloud project 969664109416,{' '}
+                      <a
+                        href="https://console.developers.google.com/apis/api/securetoken.googleapis.com/overview?project=969664109416"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-red-400 hover:underline font-bold inline-flex items-center gap-1"
+                      >
+                        enable it on GCP
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>{' '}
+                      or switch to the Owner PIN tab for instant sign-in.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -273,21 +408,61 @@ export const AdminDashboard: React.FC = () => {
   }
 
   // Smart Profit Calculation formulas
-  const gatewayFeePerOrder = (calcSellingPrice * calcGatewayFeePercent) / 100;
-  const netDeliveryExpensePerOrder = Math.max(0, calcActualDeliveryCost - calcDeliveryFeeCharged);
-  const totalCostPerDeliveredOrder =
-    calcProductCost + calcAdCost + calcPackaging + gatewayFeePerOrder + netDeliveryExpensePerOrder;
-  const profitPerDeliveredOrder = calcSellingPrice - totalCostPerDeliveredOrder;
-  const profitMarginPercent = calcSellingPrice > 0 ? (profitPerDeliveredOrder / calcSellingPrice) * 100 : 0;
+  const totalOrders = Math.max(1, calcQtySold || 1);
+  const returnRate = Math.min(100, Math.max(0, calcReturnRatePercent || 0)) / 100;
+  const returnedOrdersCount = Math.round(totalOrders * returnRate);
+  const successfulOrdersCount = Math.max(0, totalOrders - returnedOrdersCount);
 
-  const successfulOrdersCount = Math.round(calcQtySold * (1 - calcReturnRatePercent / 100));
-  const returnedOrdersCount = calcQtySold - successfulOrdersCount;
-  const lossPerReturnedOrder = calcAdCost + calcPackaging + (calcActualDeliveryCost * 1.5);
-  const totalGrossProfit = successfulOrdersCount * profitPerDeliveredOrder;
-  const totalReturnLoss = returnedOrdersCount * lossPerReturnedOrder;
-  const totalNetProfit = totalGrossProfit - totalReturnLoss;
-  const totalRevenue = successfulOrdersCount * calcSellingPrice;
-  const roas = calcAdCost * calcQtySold > 0 ? (totalRevenue / (calcAdCost * calcQtySold)).toFixed(2) : '0';
+  // Delivered Unit Economics
+  const gatewayFeeRate = Math.max(0, calcGatewayFeePercent || 0) / 100;
+  const gatewayFeePerDeliveredOrder = calcSellingPrice * gatewayFeeRate;
+  
+  // Total Revenue: Only from successful delivered orders
+  const totalGrossRevenue = successfulOrdersCount * calcSellingPrice;
+  // Delivery Fee Collected from customers (delivered orders)
+  const totalDeliveryCollected = successfulOrdersCount * calcDeliveryFeeCharged;
+  const totalCashInflow = totalGrossRevenue + totalDeliveryCollected;
+
+  // Expenses:
+  // 1. Sourcing Cost (Only for delivered products, returned products return to inventory)
+  const totalSourcingCost = successfulOrdersCount * calcProductCost;
+  
+  // 2. Advertising Cost (Paid for ALL orders placed/acquired)
+  const totalAdSpend = totalOrders * calcAdCost;
+  
+  // 3. Packaging Cost (Packaging poly/boxes used for ALL dispatched orders)
+  const totalPackagingCost = totalOrders * calcPackaging;
+  
+  // 4. Outbound Delivery Fees (Courier charges for ALL dispatched parcels)
+  const totalOutboundDeliveryCost = totalOrders * calcActualDeliveryCost;
+  
+  // 5. Return Courier Fees (Courier charges 50% or 100% of outbound delivery fee on returned parcels)
+  const totalReturnCourierCost = returnedOrdersCount * (calcActualDeliveryCost * calcReturnCourierFeeFactor);
+  
+  // 6. Total Logistics Expense & Wasted Return Loss
+  const totalLogisticsExpense = totalOutboundDeliveryCost + totalReturnCourierCost;
+  const totalReturnLoss = returnedOrdersCount * (calcPackaging + (calcActualDeliveryCost * (1 + calcReturnCourierFeeFactor)));
+  
+  // 7. Payment Gateway / COD Collection Fees (Only on delivered amount)
+  const totalGatewayFee = successfulOrdersCount * gatewayFeePerDeliveredOrder;
+
+  // TOTAL EXPENSES & NET PROFIT
+  const totalAllExpenses = totalSourcingCost + totalAdSpend + totalPackagingCost + totalLogisticsExpense + totalGatewayFee;
+  const totalNetProfit = totalCashInflow - totalAllExpenses;
+  
+  // Per delivered order profit & margins
+  const netProfitPerDeliveredOrder = successfulOrdersCount > 0 ? totalNetProfit / successfulOrdersCount : 0;
+  const profitMarginPercent = totalGrossRevenue > 0 ? (totalNetProfit / totalGrossRevenue) * 100 : 0;
+  
+  // ROAS (Return on Ad Spend)
+  const roas = totalAdSpend > 0 ? (totalGrossRevenue / totalAdSpend).toFixed(2) : '0';
+
+  // Break-Even Metrics:
+  const unitContributionBeforeAds =
+    calcSellingPrice + calcDeliveryFeeCharged - calcProductCost - calcPackaging - calcActualDeliveryCost - gatewayFeePerDeliveredOrder;
+  const returnCostPerUnit = calcPackaging + calcActualDeliveryCost * (1 + calcReturnCourierFeeFactor);
+  const breakEvenCPA = Math.max(0, Math.round((1 - returnRate) * unitContributionBeforeAds - (returnRate * returnCostPerUnit)));
+  const breakEvenROAS = breakEvenCPA > 0 ? (calcSellingPrice / breakEvenCPA).toFixed(2) : 'N/A';
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,21 +478,32 @@ export const AdminDashboard: React.FC = () => {
       `Product Sourcing Cost (BDT),${calcProductCost}`,
       `Advertising Cost per Order (BDT),${calcAdCost}`,
       `Packaging Cost (BDT),${calcPackaging}`,
-      `Courier Expense (BDT),${calcActualDeliveryCost}`,
-      `Delivery Fee Charged to Customer (BDT),${calcDeliveryFeeCharged}`,
-      `Total Delivered Quantity,${successfulOrdersCount}`,
-      `Returned Orders,${returnedOrdersCount}`,
-      `Total Revenue (BDT),${totalRevenue}`,
-      `Total Net Profit (BDT),${totalNetProfit}`,
+      `Courier Outbound Expense (BDT),${calcActualDeliveryCost}`,
+      `Delivery Fee Collected from Customer (BDT),${calcDeliveryFeeCharged}`,
+      `Payment Gateway / COD Fee (%),${calcGatewayFeePercent}%`,
+      `Total Orders Planned,${totalOrders}`,
+      `Delivered Orders Count,${successfulOrdersCount}`,
+      `Returned Orders Count,${returnedOrdersCount}`,
+      `Return Rate (%),${calcReturnRatePercent}%`,
+      `Gross Revenue (BDT),${totalGrossRevenue}`,
+      `Total Sourcing Cost (BDT),${totalSourcingCost}`,
+      `Total Ad Spend (BDT),${totalAdSpend}`,
+      `Total Packaging Cost (BDT),${totalPackagingCost}`,
+      `Total Logistics Expense (BDT),${totalLogisticsExpense}`,
+      `Total Return Loss (BDT),${Math.round(totalReturnLoss)}`,
+      `Total Net Profit (BDT),${Math.round(totalNetProfit)}`,
       `Net Profit Margin (%),${profitMarginPercent.toFixed(2)}%`,
-      `Return on Ad Spend (ROAS),${roas}x`,
+      `Net Profit per Delivered Order (BDT),${Math.round(netProfitPerDeliveredOrder)}`,
+      `Achieved ROAS,${roas}x`,
+      `Break-Even CPA (BDT),${breakEvenCPA}`,
+      `Break-Even ROAS,${breakEvenROAS}x`,
     ].join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `A1NOXHUB_Profit_Report_${Date.now()}.csv`);
+    link.setAttribute('download', `A1NOXHUB_Smart_Profit_Analysis_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1443,191 +1629,658 @@ export const AdminDashboard: React.FC = () => {
 
           {/* TAB 6: SMART PROFIT CALCULATOR */}
           {activeTab === 'calculator' && (
-            <div className="space-y-6 max-w-6xl mx-auto">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in duration-200">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-white">
-                    Smart Profit & Loss Calculator
-                  </h1>
-                  <p className="text-xs text-slate-400">
-                    Comprehensive unit economics, return-loss modeling, and net profit forecasting
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleExportCSV}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer shadow-md"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download CSV Report</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Inputs Column */}
-                <div className="lg:col-span-7 bg-[#1E293B] border border-slate-700/60 p-5 rounded-2xl space-y-4">
-                  <h3 className="text-sm font-bold text-white border-b border-slate-700 pb-2">
-                    Unit Financial Inputs
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Selling Price (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcSellingPrice}
-                        onChange={e => setCalcSellingPrice(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-950">
+                      <Calculator className="w-5 h-5" />
                     </div>
-
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Product Sourcing Cost (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcProductCost}
-                        onChange={e => setCalcProductCost(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Ad Spend per Order (CPA)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcAdCost}
-                        onChange={e => setCalcAdCost(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Packaging Box / Poly (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcPackaging}
-                        onChange={e => setCalcPackaging(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Courier Cost to Seller (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcActualDeliveryCost}
-                        onChange={e => setCalcActualDeliveryCost(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Delivery Fee Collected from Customer
-                      </label>
-                      <input
-                        type="number"
-                        value={calcDeliveryFeeCharged}
-                        onChange={e => setCalcDeliveryFeeCharged(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Quantity Expected to Sell
-                      </label>
-                      <input
-                        type="number"
-                        value={calcQtySold}
-                        onChange={e => setCalcQtySold(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        Return / Cancelled Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={calcReturnRatePercent}
-                        onChange={e => setCalcReturnRatePercent(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono"
-                      />
+                      <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                        Smart Profit & Loss Calculator
+                      </h1>
+                      <p className="text-xs text-slate-400">
+                        Bangladesh e-commerce unit economics, courier return modeling, and Meta Ads ROAS forecasting
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Results Column */}
-                <div className="lg:col-span-5 bg-[#1E293B] border border-slate-700/60 p-5 rounded-2xl flex flex-col justify-between space-y-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-white border-b border-slate-700 pb-2">
-                      Calculated Business Results
-                    </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalcSellingPrice(1999);
+                      setCalcProductCost(1200);
+                      setCalcAdCost(180);
+                      setCalcPackaging(40);
+                      setCalcActualDeliveryCost(80);
+                      setCalcDeliveryFeeCharged(60);
+                      setCalcGatewayFeePercent(1.0);
+                      setCalcQtySold(100);
+                      setCalcReturnRatePercent(8);
+                      setCalcReturnCourierFeeFactor(0.5);
+                      setCalcSelectedProductId("");
+                    }}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition cursor-pointer border border-slate-700"
+                  >
+                    Reset Defaults
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer shadow-md shadow-emerald-950"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download CSV Report</span>
+                  </button>
+                </div>
+              </div>
 
-                    <div className="space-y-3 mt-4 text-xs">
-                      <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Profit per Delivered Order:</span>
-                        <span className={`text-sm font-black font-mono ${profitPerDeliveredOrder >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {formatBDT(profitPerDeliveredOrder)}
+              {/* 4 Dynamic Top KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Net Realized Profit */}
+                <div className="bg-[#1E293B] border border-slate-700/70 p-4 rounded-2xl shadow-lg relative overflow-hidden">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                    <span>Net Realized Profit</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                        profitMarginPercent >= 25
+                          ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                          : profitMarginPercent >= 15
+                          ? "bg-cyan-950 text-cyan-300 border border-cyan-800"
+                          : profitMarginPercent >= 0
+                          ? "bg-amber-950 text-amber-300 border border-amber-800"
+                          : "bg-rose-950 text-rose-300 border border-rose-800"
+                      }`}
+                    >
+                      {profitMarginPercent >= 25
+                        ? "🚀 High Profit"
+                        : profitMarginPercent >= 15
+                        ? "✅ Healthy"
+                        : profitMarginPercent >= 0
+                        ? "⚠️ Low Margin"
+                        : "🚨 Loss Making"}
+                    </span>
+                  </div>
+                  <div
+                    className={`text-2xl sm:text-3xl font-black font-mono mt-2 ${
+                      totalNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"
+                    }`}
+                  >
+                    {totalNetProfit >= 0 ? "+" : ""}
+                    {formatBDT(Math.round(totalNetProfit))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Per Delivered Order:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {netProfitPerDeliveredOrder >= 0 ? "+" : ""}
+                      {formatBDT(Math.round(netProfitPerDeliveredOrder))}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Real Net Margin % */}
+                <div className="bg-[#1E293B] border border-slate-700/70 p-4 rounded-2xl shadow-lg">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                    <span>Net Profit Margin</span>
+                    <span className="text-[11px] text-slate-400 font-normal">on Gross Sales</span>
+                  </div>
+                  <div
+                    className={`text-2xl sm:text-3xl font-black font-mono mt-2 ${
+                      profitMarginPercent >= 20
+                        ? "text-cyan-400"
+                        : profitMarginPercent >= 10
+                        ? "text-emerald-400"
+                        : profitMarginPercent >= 0
+                        ? "text-amber-400"
+                        : "text-rose-400"
+                    }`}
+                  >
+                    {profitMarginPercent.toFixed(1)}%
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Gross Sales Revenue:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {formatBDT(totalGrossRevenue)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. ROAS & Ad Health */}
+                <div className="bg-[#1E293B] border border-slate-700/70 p-4 rounded-2xl shadow-lg">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                    <span>Meta Ads ROAS</span>
+                    <span className="text-[10px] bg-slate-800 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">
+                      BE ROAS: {breakEvenROAS}x
+                    </span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400 mt-2">
+                    {roas}x
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Max Break-Even CPA:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {formatBDT(breakEvenCPA)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. Courier & Return Loss */}
+                <div className="bg-[#1E293B] border border-slate-700/70 p-4 rounded-2xl shadow-lg">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                    <span>Return Waste & Loss</span>
+                    <span className="text-[10px] bg-red-950 text-red-300 border border-red-800/60 px-2 py-0.5 rounded font-bold font-mono">
+                      {calcReturnRatePercent}% Returns
+                    </span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-rose-400 mt-2">
+                    -{formatBDT(Math.round(totalReturnLoss))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Delivered vs Returned:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {successfulOrdersCount} / {returnedOrdersCount}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main 2-Column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column: Inputs (7 Cols) */}
+                <div className="lg:col-span-7 space-y-5">
+                  {/* Card 1: Catalog Selector & Quick Presets */}
+                  <div className="bg-[#1E293B] border border-slate-700/70 p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                      <span className="text-xs uppercase font-bold text-slate-300 tracking-wider flex items-center gap-1.5">
+                        <ShoppingBag className="w-3.5 h-3.5 text-red-400" />
+                        <span>Quick Load from Store Products</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">Auto-fills price & costs</span>
+                    </div>
+
+                    <div>
+                      <select
+                        value={calcSelectedProductId}
+                        onChange={e => {
+                          const prodId = e.target.value;
+                          setCalcSelectedProductId(prodId);
+                          const found = products.find(p => p.id === prodId);
+                          if (found) {
+                            setCalcSellingPrice(found.price);
+                            const estCost = found.cost || Math.round(found.price * 0.58);
+                            setCalcProductCost(estCost);
+                          }
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#D32F2F]"
+                      >
+                        <option value="">-- Select a product from your catalog --</option>
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.title} — {formatBDT(p.price)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="pt-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block mb-2">
+                        Common Bangladesh Scenarios:
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCalcActualDeliveryCost(60);
+                            setCalcDeliveryFeeCharged(60);
+                            setCalcReturnRatePercent(5);
+                          }}
+                          className="bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white p-2 rounded-xl text-left border border-slate-800 transition cursor-pointer"
+                        >
+                          <p className="text-[11px] font-bold text-emerald-400">Inside Dhaka</p>
+                          <p className="text-[10px] text-slate-400">৳60 / ৳60 (5% ret)</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCalcActualDeliveryCost(120);
+                            setCalcDeliveryFeeCharged(100);
+                            setCalcReturnRatePercent(12);
+                          }}
+                          className="bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white p-2 rounded-xl text-left border border-slate-800 transition cursor-pointer"
+                        >
+                          <p className="text-[11px] font-bold text-cyan-400">Outside Dhaka</p>
+                          <p className="text-[10px] text-slate-400">৳120 / ৳100 (12% ret)</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCalcActualDeliveryCost(100);
+                            setCalcDeliveryFeeCharged(0);
+                            setCalcReturnRatePercent(8);
+                          }}
+                          className="bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white p-2 rounded-xl text-left border border-slate-800 transition cursor-pointer"
+                        >
+                          <p className="text-[11px] font-bold text-purple-400">Free Delivery</p>
+                          <p className="text-[10px] text-slate-400">৳100 Cost / ৳0 Free</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCalcQtySold(500);
+                            setCalcAdCost(220);
+                            setCalcReturnRatePercent(10);
+                          }}
+                          className="bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white p-2 rounded-xl text-left border border-slate-800 transition cursor-pointer"
+                        >
+                          <p className="text-[11px] font-bold text-amber-400">Scale Campaign</p>
+                          <p className="text-[10px] text-slate-400">500 Orders scale</p>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Unit Pricing, Sourcing & Marketing Costs */}
+                  <div className="bg-[#1E293B] border border-slate-700/70 p-5 rounded-2xl space-y-4">
+                    <span className="text-xs uppercase font-bold text-slate-300 tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2.5">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Unit Pricing, Sourcing & Marketing</span>
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      {/* Selling Price */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Selling Price to Customer (BDT)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={calcSellingPrice || ""}
+                          onChange={e => setCalcSellingPrice(Math.max(0, Number(e.target.value)))}
+                          placeholder="1999"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Sourcing Cost */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Product Sourcing / Purchase Cost (BDT)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={calcProductCost || ""}
+                          onChange={e => setCalcProductCost(Math.max(0, Number(e.target.value)))}
+                          placeholder="1200"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Ad Cost per Order (CPA) */}
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-slate-300 font-semibold">
+                            Meta/FB Ad Spend per Order (CPA in BDT)
+                          </label>
+                          <span className="font-mono text-amber-400 font-bold">
+                            ৳{calcAdCost} / purchase
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="30"
+                            max="800"
+                            step="10"
+                            value={calcAdCost}
+                            onChange={e => setCalcAdCost(Number(e.target.value))}
+                            className="flex-1 accent-[#D32F2F] cursor-pointer"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            value={calcAdCost || ""}
+                            onChange={e => setCalcAdCost(Math.max(0, Number(e.target.value)))}
+                            className="w-24 bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono text-center font-bold text-xs"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Total Meta Ad Budget for this campaign:{" "}
+                          <strong className="text-slate-200 font-mono">
+                            {formatBDT(totalAdSpend)}
+                          </strong>
+                        </p>
+                      </div>
+
+                      {/* Packaging Cost */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Packaging Box, Tape & Poly (BDT)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={calcPackaging || ""}
+                          onChange={e => setCalcPackaging(Math.max(0, Number(e.target.value)))}
+                          placeholder="40"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Payment Gateway / COD Fee */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Gateway Fee / COD Fee (%)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="10"
+                            value={calcGatewayFeePercent}
+                            onChange={e => setCalcGatewayFeePercent(Math.max(0, Number(e.target.value)))}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                          />
+                          <div className="flex gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setCalcGatewayFeePercent(1.0)}
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-bold ${
+                                calcGatewayFeePercent === 1.0
+                                  ? "bg-red-900/80 text-white"
+                                  : "bg-slate-800 text-slate-400"
+                              }`}
+                            >
+                              1% COD
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalcGatewayFeePercent(1.5)}
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-bold ${
+                                calcGatewayFeePercent === 1.5
+                                  ? "bg-red-900/80 text-white"
+                                  : "bg-slate-800 text-slate-400"
+                              }`}
+                            >
+                              1.5% bKash
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Logistics & Return Optimization */}
+                  <div className="bg-[#1E293B] border border-slate-700/70 p-5 rounded-2xl space-y-4">
+                    <span className="text-xs uppercase font-bold text-slate-300 tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2.5">
+                      <Truck className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Logistics, Delivery & Return Rates</span>
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      {/* Courier Outbound Cost */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Courier Delivery Fee Charged to You (BDT)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={calcActualDeliveryCost || ""}
+                          onChange={e => setCalcActualDeliveryCost(Math.max(0, Number(e.target.value)))}
+                          placeholder="80"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Delivery Fee Collected from Customer */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Delivery Fee Charged to Customer (BDT)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={calcDeliveryFeeCharged}
+                          onChange={e => setCalcDeliveryFeeCharged(Math.max(0, Number(e.target.value)))}
+                          placeholder="60"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Total Volume */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Orders Dispatched (Planned Volume)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={calcQtySold || ""}
+                          onChange={e => setCalcQtySold(Math.max(1, Number(e.target.value)))}
+                          placeholder="100"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-[#D32F2F]"
+                        />
+                      </div>
+
+                      {/* Return Courier Policy Factor */}
+                      <div>
+                        <label className="text-slate-300 font-semibold block mb-1">
+                          Courier Return Policy
+                        </label>
+                        <select
+                          value={calcReturnCourierFeeFactor}
+                          onChange={e => setCalcReturnCourierFeeFactor(Number(e.target.value))}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#D32F2F]"
+                        >
+                          <option value={0.5}>Steadfast / Pathao (50% Return Charge)</option>
+                          <option value={1.0}>Full 100% Roundtrip Return Charge</option>
+                          <option value={0.0}>Free Return Policy (0% Return Surcharge)</option>
+                        </select>
+                      </div>
+
+                      {/* Interactive Return Rate Slider */}
+                      <div className="sm:col-span-2 space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-slate-300 font-semibold flex items-center gap-1.5">
+                            <span>Return / Cancellation Rate (%)</span>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              ({returnedOrdersCount} returned out of {totalOrders} dispatched)
+                            </span>
+                          </label>
+                          <span
+                            className={`font-mono font-bold ${
+                              calcReturnRatePercent > 15
+                                ? "text-rose-400"
+                                : calcReturnRatePercent > 8
+                                ? "text-amber-400"
+                                : "text-emerald-400"
+                            }`}
+                          >
+                            {calcReturnRatePercent}% Return Rate
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="40"
+                          step="1"
+                          value={calcReturnRatePercent}
+                          onChange={e => setCalcReturnRatePercent(Number(e.target.value))}
+                          className="w-full accent-red-500 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Complete Financial P&L Statement (5 Cols) */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="bg-[#1E293B] border border-slate-700/70 p-5 rounded-2xl shadow-xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                        <h3 className="text-sm font-bold text-white">Full P&L Breakdown</h3>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {successfulOrdersCount} Delivered / {returnedOrdersCount} Returned
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs">
+                      {/* Gross Product Sales */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Gross Product Sales:</span>
+                        <span className="font-mono font-bold text-white">
+                          +{formatBDT(totalGrossRevenue)}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Net Profit Margin:</span>
-                        <span className="text-sm font-black font-mono text-cyan-400">
-                          {profitMarginPercent.toFixed(1)}%
+                      {/* Delivery Charge Inflow */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Delivery Collected from Customers:</span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          +{formatBDT(totalDeliveryCollected)}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Total Revenue:</span>
-                        <span className="text-sm font-bold font-mono text-white">
-                          {formatBDT(totalRevenue)}
+                      {/* Sourcing Cost */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Product Sourcing Cost (Delivered):</span>
+                        <span className="font-mono font-bold text-slate-300">
+                          -{formatBDT(totalSourcingCost)}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Return Loss ({returnedOrdersCount} orders):</span>
-                        <span className="text-sm font-bold font-mono text-red-400">
-                          -{formatBDT(totalReturnLoss)}
+                      {/* Total Meta Ad Spend */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Meta/FB Ad Spend ({totalOrders} orders):</span>
+                        <span className="font-mono font-bold text-amber-400">
+                          -{formatBDT(totalAdSpend)}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Return on Ad Spend (ROAS):</span>
-                        <span className="text-sm font-bold font-mono text-amber-400">
-                          {roas}x
+                      {/* Packaging Expense */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Packaging Materials (Boxes/Poly):</span>
+                        <span className="font-mono font-bold text-slate-300">
+                          -{formatBDT(totalPackagingCost)}
                         </span>
                       </div>
 
-                      <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 mt-4">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                          Net Realized Profit ({calcQtySold} total orders):
-                        </span>
-                        <span className="text-2xl font-black text-emerald-400 font-mono block mt-1">
-                          {formatBDT(totalNetProfit)}
+                      {/* Courier Outbound Expense */}
+                      <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                        <span className="text-slate-400">Courier Outbound Shipping ({totalOrders} parcels):</span>
+                        <span className="font-mono font-bold text-slate-300">
+                          -{formatBDT(totalOutboundDeliveryCost)}
                         </span>
                       </div>
+
+                      {/* Courier Return Surcharge */}
+                      {returnedOrdersCount > 0 && (
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80 bg-red-950/30 px-2 rounded-lg">
+                          <span className="text-red-300">Return Courier Surcharge ({returnedOrdersCount} parcels):</span>
+                          <span className="font-mono font-bold text-red-400">
+                            -{formatBDT(Math.round(totalReturnCourierCost))}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Gateway / COD Collection Fee */}
+                      {totalGatewayFee > 0 && (
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+                          <span className="text-slate-400">
+                            Payment Gateway / COD Fee ({calcGatewayFeePercent}%):
+                          </span>
+                          <span className="font-mono font-bold text-slate-300">
+                            -{formatBDT(Math.round(totalGatewayFee))}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Net Bottom Line Callout */}
+                      <div
+                        className={`p-4 rounded-xl border mt-4 ${
+                          totalNetProfit >= 0
+                            ? "bg-gradient-to-br from-emerald-950/80 to-slate-900 border-emerald-800/60"
+                            : "bg-gradient-to-br from-rose-950/80 to-slate-900 border-rose-800/60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                            Bottom Line Net Profit
+                          </span>
+                          <span
+                            className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
+                              totalNetProfit >= 0
+                                ? "bg-emerald-900/60 text-emerald-300"
+                                : "bg-rose-900/60 text-rose-300"
+                            }`}
+                          >
+                            {profitMarginPercent.toFixed(1)}% margin
+                          </span>
+                        </div>
+                        <span
+                          className={`text-3xl font-black font-mono block mt-2 ${
+                            totalNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"
+                          }`}
+                        >
+                          {totalNetProfit >= 0 ? "+" : ""}
+                          {formatBDT(Math.round(totalNetProfit))}
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          After all product, ad, packaging, courier, and return losses.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Marketing Strategy Advisor Card */}
+                    <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                        <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Ad Strategy & Profit Rules</span>
+                      </div>
+                      <ul className="space-y-1.5 text-[11px] text-slate-300 list-disc list-inside">
+                        <li>
+                          <strong>Max Allowable CPA:</strong> Do not spend more than{" "}
+                          <span className="text-amber-400 font-mono font-bold">
+                            {formatBDT(breakEvenCPA)}
+                          </span>{" "}
+                          per purchase on Meta Ads.
+                        </li>
+                        <li>
+                          <strong>Break-Even ROAS:</strong> Your campaigns must hit at least{" "}
+                          <span className="text-amber-400 font-mono font-bold">
+                            {breakEvenROAS}x
+                          </span>{" "}
+                          to cover ad costs.
+                        </li>
+                        {calcReturnRatePercent > 10 && (
+                          <li className="text-red-300">
+                            <strong>High Return Warning:</strong> A {calcReturnRatePercent}% return rate costs you{" "}
+                            <span className="font-mono font-bold">
+                              {formatBDT(Math.round(totalReturnLoss))}
+                            </span>
+                            . Call customers to confirm addresses before shipping.
+                          </li>
+                        )}
+                      </ul>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-
-          {/* TAB 7: META PIXEL & CAPI */}
           {activeTab === 'meta_pixel' && (
             <div className="space-y-6 max-w-5xl mx-auto">
               <div>

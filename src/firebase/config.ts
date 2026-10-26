@@ -30,23 +30,19 @@ export async function testConnection() {
 export async function loginWithGoogle(): Promise<{ user: any; error?: string; code?: string }> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    if (result.user) {
-      try {
-        await result.user.getIdToken();
-      } catch (tokenErr: any) {
-        if (tokenErr?.message?.includes('token-service-api') || tokenErr?.message?.includes('securetoken')) {
-          await signOut(auth);
-          return {
-            user: null,
-            error: 'Google Token Service API is disabled on project 969664109416. Enable it at https://console.developers.google.com/apis/api/securetoken.googleapis.com/overview?project=969664109416 then retry.',
-          };
-        }
-      }
-    }
     return { user: result.user };
   } catch (error: any) {
     const code = error?.code || 'auth/unknown';
-    const message = error?.message || 'Google sign-in could not be completed.';
+    let message = error?.message || 'Google sign-in could not be completed.';
+    if (code === 'auth/popup-blocked') {
+      message = 'Popup was blocked by your browser. Please allow popups or use the Owner PIN to sign in.';
+    } else if (code === 'auth/popup-closed-by-user') {
+      message = 'Sign-in popup was closed before completing.';
+    } else if (code === 'auth/unauthorized-domain') {
+      message = 'This preview domain is not in Firebase authorized domains. Please sign in with the Owner PIN.';
+    } else if (message.includes('token-service-api') || message.includes('securetoken')) {
+      message = 'Google Token Service API is disabled on project 969664109416. Enable it at https://console.developers.google.com/apis/api/securetoken.googleapis.com/overview?project=969664109416 or use the Owner PIN below.';
+    }
     console.warn(`Firebase Google Sign-In Status (${code}):`, message);
     return { user: null, error: message, code };
   }

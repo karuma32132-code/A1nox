@@ -141,6 +141,9 @@ export async function createOrderInDB(order: Order): Promise<void> {
 }
 
 export async function getOrdersFromDB(): Promise<Order[]> {
+  if (!auth.currentUser) {
+    return [];
+  }
   const path = 'orders';
   try {
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
@@ -262,6 +265,9 @@ export async function saveCouponToDB(coupon: Coupon): Promise<void> {
 
 // Wishlists
 export async function getWishlistFromDB(userId: string): Promise<string[] | null> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return null;
+  }
   const path = `wishlists/${userId}`;
   try {
     const snap = await getDoc(doc(db, 'wishlists', userId));
@@ -280,6 +286,9 @@ export async function getWishlistFromDB(userId: string): Promise<string[] | null
 }
 
 export async function saveWishlistToDB(userId: string, productIds: string[]): Promise<void> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return;
+  }
   const path = `wishlists/${userId}`;
   try {
     await setDoc(doc(db, 'wishlists', userId), {
