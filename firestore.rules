@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // STRICT OWNER-ONLY ADMIN ACCESS:
+    // Only the explicitly authorized store owner email is granted administrative privileges.
+    function isAdmin() {
+      return isVerified() && request.auth.token.email.lower() == 'karuma32132@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection testing
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Admin identities (strictly restricted to store owner)
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Products collection: public read, admin write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Categories collection: public read, admin write
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Settings collection: public read, admin write
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Coupons collection: public read, admin write
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders collection:
+    // Anyone can create an order (guest checkout & member checkout)
+    // Customers can read their own orders if authenticated or look up single order by orderId
+    // Admin can read, update, delete all orders
+    match /orders/{orderId} {
+      allow create: if isValidId(orderId) &&
+        request.resource.data.customerName is string &&
+        request.resource.data.customerName.size() > 0 &&
+        request.resource.data.customerName.size() <= 150 &&
+        request.resource.data.customerPhone is string &&
+        request.resource.data.customerPhone.size() > 0 &&
+        request.resource.data.deliveryAddress is string &&
+        request.resource.data.deliveryAddress.size() > 0 &&
+        request.resource.data.deliveryZone in ['inside_dhaka', 'outside_dhaka'] &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0;
+
+      // Single order lookup (get) by valid Order ID for real-time customer tracking
+      allow get: if isValidId(orderId);
+
+      // Listing all orders is strictly restricted to store admin
+      allow list: if isAdmin();
+
+      allow update, delete: if isAdmin();
+    }
+
+    // Reviews collection: public read, customer create
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidId(reviewId) &&
+        request.resource.data.productId is string &&
+        request.resource.data.customerName is string &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5;
+      allow update, delete: if isAdmin();
+    }
+
+    // Wishlists collection: persistent customer saved items
+    match /wishlists/{userId} {
+      allow read: if isValidId(userId) && (isAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow create, update: if isValidId(userId) && (
+        isAdmin() || (
+          isSignedIn() &&
+          request.auth.uid == userId &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.productIds is list &&
+          request.resource.data.productIds.size() <= 100
+        )
+      );
+      allow delete: if isValidId(userId) && (isAdmin() || (isSignedIn() && request.auth.uid == userId));
+    }
+  }
+}

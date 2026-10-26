@@ -1,0 +1,8 @@
+{
+  "name": "Remix A1NOXHUB — Ultimate Bangladesh E-Commerce",
+  "description": "Premium Products, Better Living. Multi-category e-commerce storefront for Bangladesh with BDT pricing, free delivery over ৳1,000, bKash/Nagad/COD, Meta Pixel \u0026 CAPI, and complete admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
